@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LinkedIn Authority Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --green: #1D9E75; --green-light: #E1F5EE; --green-dark: #0F6E56;
+    --border: #e0ddd6; --text: #1a1a18; --text-muted: #73726c;
+    --bg: #ffffff; --surface: #f7f6f2;
+    --red: #A32D2D; --red-light: #FCEBEB; --purple: #534AB7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a18; --surface: #242422; --text: #e8e6df;
+      --text-muted: #9c9a92; --border: #3a3936;
+      --green-light: #04342C; --red-light: #501313;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--surface); color: var(--text); min-height: 100vh; }
+  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 20px; font-weight: 500; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 2rem; }
+
+  .add-card { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; }
+  .add-card h2 { font-size: 14px; font-weight: 500; margin-bottom: 12px; color: var(--text-muted); }
+  .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-bottom: 10px; }
+  .form-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)) 2fr; gap: 10px; margin-bottom: 12px; }
+  @media (max-width: 600px) { .form-grid, .form-grid-2 { grid-template-columns: 1fr 1fr; } }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+  .field input { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: var(--surface); color: var(--text); outline: none; }
+  .field input:focus { border-color: var(--green); }
+  .btn { padding: 8px 20px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 13px; cursor: pointer; transition: background .15s; }
+  .btn:hover { background: var(--surface); }
+  .btn-primary { background: var(--green); color: #fff; border-color: var(--green-dark); }
+  .btn-primary:hover { background: var(--green-dark); }
+  .btn-danger { color: var(--red); border-color: var(--red); font-size: 12px; padding: 4px 10px; }
+  .btn-danger:hover { background: var(--red-light); }
+
+  .cards { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 1.5rem; }
+  @media (max-width: 600px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+  .card { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .card-label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+  .card-value { font-size: 24px; font-weight: 500; }
+  .card-delta { font-size: 12px; margin-top: 3px; }
+  .up { color: var(--green); } .down { color: var(--red); }
+
+  .chart-section { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; }
+  .chart-section h2 { font-size: 13px; color: var(--text-muted); font-weight: 400; margin-bottom: 1rem; }
+  .chart-wrap { position: relative; width: 100%; height: 200px; }
+
+  .table-section { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 1.5rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: var(--green); color: #fff; font-weight: 500; padding: 10px 14px; text-align: left; }
+  td { padding: 9px 14px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: var(--surface); }
+  .badge { display: inline-block; font-size: 11px; padding: 2px 6px; border-radius: 20px; margin-left: 5px; }
+  .badge-up { background: var(--green-light); color: var(--green-dark); }
+  .badge-down { background: var(--red-light); color: var(--red); }
+
+  .empty { text-align: center; padding: 2.5rem; color: var(--text-muted); font-size: 14px; }
+  .cal-bar { background: var(--green-light); border: 1px solid #9FE1CB; border-radius: 12px; padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .cal-bar p { font-size: 13px; color: var(--green-dark); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>LinkedIn Authority Tracker</h1>
+  <p class="subtitle">Acompanhamento semanal — registre toda sexta-feira</p>
+
+  <div class="add-card">
+    <h2>Novo registro</h2>
+    <div class="form-grid">
+      <div class="field"><label>Data</label><input type="date" id="f-date"></div>
+      <div class="field"><label>Impressões</label><input type="number" id="f-impressions" placeholder="ex: 5238"></div>
+      <div class="field"><label>Seguidores</label><input type="number" id="f-followers" placeholder="ex: 3547"></div>
+    </div>
+    <div class="form-grid-2">
+      <div class="field"><label>Viewers (90d)</label><input type="number" id="f-viewers" placeholder="ex: 226"></div>
+      <div class="field"><label>Aparições (semana)</label><input type="number" id="f-appearances" placeholder="ex: 1147"></div>
+      <div class="field"><label>Nota / contexto</label><input type="text" id="f-note" placeholder="ex: publiquei carrossel viral"></div>
+    </div>
+    <button class="btn btn-primary" onclick="addEntry()">+ Adicionar registro</button>
+  </div>
+
+  <div id="summary-cards" class="cards"></div>
+
+  <div id="charts-wrap">
+    <div class="chart-section">
+      <h2>Impressões de posts — evolução semanal</h2>
+      <div class="chart-wrap"><canvas id="chart-impressions"></canvas></div>
+    </div>
+    <div class="chart-section">
+      <h2>Seguidores — evolução</h2>
+      <div class="chart-wrap"><canvas id="chart-followers"></canvas></div>
+    </div>
+  </div>
+
+  <div class="table-section">
+    <table>
+      <thead><tr>
+        <th>Semana</th><th>Impressões</th><th>Seguidores</th><th>Viewers</th><th>Aparições</th><th>Nota</th><th></th>
+      </tr></thead>
+      <tbody id="history-body">
+        <tr><td colspan="7" class="empty">Nenhum registro ainda. Adicione o primeiro acima.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="cal-bar">
+    <p>Toda sexta-feira: abra este arquivo e adicione os dados do LinkedIn Analytics.</p>
+    <a id="cal-btn" href="#" target="_blank" class="btn">Criar lembrete no Google Agenda</a>
+  </div>
+
+</div>
+<script>
+const STORAGE_KEY = 'li_tracker_v2';
+let chartImp = null, chartFol = null;
+
+const seed = [
+  { date: '2026-03-14', impressions: 17,   followers: 3304, viewers: 191, appearances: 1059, note: 'Baseline — início do acompanhamento' },
+  { date: '2026-03-20', impressions: 5238, followers: 3547, viewers: 226, appearances: 1147, note: 'Viral: +37.314% impressões na semana' },
+];
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [...seed];
+  } catch(e) { return [...seed]; }
+}
+
+function save(data) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+}
+
+function fmt(n) { return (n == null || n === '') ? '—' : Number(n).toLocaleString('pt-BR'); }
+function fmtDate(d) {
+  if (!d) return '';
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+
+function delta(curr, prev, key) {
+  if (!prev || !prev[key] || Number(prev[key]) === 0) return null;
+  return ((Number(curr[key]) - Number(prev[key])) / Number(prev[key]) * 100);
+}
+
+function addEntry() {
+  const data = load();
+  const d    = document.getElementById('f-date').value;
+  const imp  = document.getElementById('f-impressions').value;
+  const fol  = document.getElementById('f-followers').value;
+  const vie  = document.getElementById('f-viewers').value;
+  const app  = document.getElementById('f-appearances').value;
+  const note = document.getElementById('f-note').value;
+
+  if (!d || !imp || !fol) { alert('Preencha pelo menos data, impressões e seguidores.'); return; }
+
+  data.push({
+    date: d,
+    impressions: Number(imp),
+    followers:   Number(fol),
+    viewers:     vie  ? Number(vie)  : null,
+    appearances: app  ? Number(app)  : null,
+    note: note || ''
+  });
+  data.sort((a, b) => a.date.localeCompare(b.date));
+  save(data);
+  ['f-date','f-impressions','f-followers','f-viewers','f-appearances','f-note'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  render(data);
+}
+
+function removeEntry(date) {
+  if (!confirm('Remover o registro de ' + fmtDate(date) + '?')) return;
+  const data = load().filter(r => r.date !== date);
+  save(data);
+  render(data);
+}
+
+function render(data) {
+  renderCards(data);
+  renderCharts(data);
+  renderTable(data);
+}
+
+function renderCards(data) {
+  if (!data.length) { document.getElementById('summary-cards').innerHTML = ''; return; }
+  const curr = data[data.length - 1];
+  const prev = data.length > 1 ? data[data.length - 2] : null;
+  const fields = [
+    { key: 'impressions', label: 'Impressões' },
+    { key: 'followers',   label: 'Seguidores' },
+    { key: 'viewers',     label: 'Viewers 90d' },
+    { key: 'appearances', label: 'Aparições' },
+  ];
+  document.getElementById('summary-cards').innerHTML = fields.map(f => {
+    const d = prev ? delta(curr, prev, f.key) : null;
+    const dHtml = d != null
+      ? `<div class="card-delta ${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(1)}%</div>`
+      : '';
+    return `<div class="card"><div class="card-label">${f.label}</div><div class="card-value">${fmt(curr[f.key])}</div>${dHtml}</div>`;
+  }).join('');
+}
+
+function renderCharts(data) {
+  const labels = data.map(d => fmtDate(d.date));
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const grid = dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+  const tick = dark ? '#9c9a92' : '#73726c';
+  const opts = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: grid }, ticks: { color: tick, font: { size: 11 }, maxRotation: 30 } },
+      y: { grid: { color: grid }, ticks: { color: tick, font: { size: 11 } } }
+    }
+  };
+  if (chartImp) chartImp.destroy();
+  chartImp = new Chart(document.getElementById('chart-impressions'), {
+    type: 'line',
+    data: { labels, datasets: [{ data: data.map(d => d.impressions), borderColor: '#1D9E75', backgroundColor: '#1D9E7522', tension: 0.35, pointRadius: 5, fill: true }] },
+    options: { ...opts }
+  });
+  if (chartFol) chartFol.destroy();
+  chartFol = new Chart(document.getElementById('chart-followers'), {
+    type: 'line',
+    data: { labels, datasets: [{ data: data.map(d => d.followers), borderColor: '#534AB7', backgroundColor: '#534AB722', tension: 0.35, pointRadius: 5, fill: true }] },
+    options: { ...opts }
+  });
+}
+
+function renderTable(data) {
+  if (!data.length) {
+    document.getElementById('history-body').innerHTML = '<tr><td colspan="7" class="empty">Nenhum registro ainda.</td></tr>';
+    return;
+  }
+  const rows = [...data].reverse().map((entry, i, arr) => {
+    const p = arr[i + 1];
+    function badge(key) {
+      if (!p || !p[key]) return '';
+      const d = ((Number(entry[key]) - Number(p[key])) / Number(p[key]) * 100);
+      return `<span class="badge ${d >= 0 ? 'badge-up' : 'badge-down'}">${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(1)}%</span>`;
+    }
+    return `<tr>
+      <td>${fmtDate(entry.date)}</td>
+      <td>${fmt(entry.impressions)}${badge('impressions')}</td>
+      <td>${fmt(entry.followers)}${badge('followers')}</td>
+      <td>${fmt(entry.viewers)}</td>
+      <td>${fmt(entry.appearances)}</td>
+      <td style="color:var(--text-muted);font-size:12px">${entry.note || ''}</td>
+      <td><button class="btn btn-danger" onclick="removeEntry('${entry.date}')">×</button></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('history-body').innerHTML = rows;
+}
+
+function buildCalUrl() {
+  const title = encodeURIComponent('Registrar métricas do LinkedIn');
+  const details = encodeURIComponent('Abrir linkedin_tracker.html e preencher: impressões, seguidores, viewers (90d) e aparições da semana.');
+  const now = new Date();
+  const daysUntil = (5 - now.getDay() + 7) % 7 || 7;
+  const nf = new Date(now); nf.setDate(now.getDate() + daysUntil); nf.setHours(9,0,0,0);
+  const ne = new Date(nf.getTime() + 15*60*1000);
+  const pad = n => String(n).padStart(2,'0');
+  const fmtD = d => `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}0000`;
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${fmtD(nf)}/${fmtD(ne)}&details=${details}&recur=RRULE:FREQ=WEEKLY;BYDAY=FR`;
+}
+
+document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+document.getElementById('cal-btn').href = buildCalUrl();
+render(load());
+</script>
+</body>
+</html>
